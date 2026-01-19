@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BadUSB Defense Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ BadUSB Defense</h1>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Events</div>
+                <div class="stat-value" id="totalEvents">0</div>
+            </div>
+            <div class="stat-card blocked">
+                <div class="stat-label">Blocked Devices</div>
+                <div class="stat-value" id="blockedDevices">0</div>
+            </div>
+            <div class="stat-card allowed">
+                <div class="stat-label">Allowed Devices</div>
+                <div class="stat-value" id="allowedDevices">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Update</div>
+                <div class="stat-value small" id="lastUpdate">--</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="connectBtn" class="btn btn-primary">Connect to Pico</button>
+            <button id="disconnectBtn" class="btn btn-secondary" disabled>Disconnect</button>
+            <button id="clearBtn" class="btn btn-secondary">Clear Logs</button>
+        </div>
+
+        <div class="events-section">
+            <h2>Event Log</h2>
+            <div class="events-container" id="eventsContainer">
+                <div class="event-item info">
+                    <span class="event-time">--</span>
+                    <span class="event-message">Waiting for events...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
