@@ -26,9 +26,18 @@ def find_pico_port():
     ports = serial.tools.list_ports.comports()
     for port in ports:
         # Common identifiers for Pico
-        if 'Pico' in port.description or 'USB Serial' in port.description or 'CDC' in port.description:
+        desc = port.description.upper()
+        if 'PICO' in desc or 'USB SERIAL' in desc or 'CDC' in desc or 'CH340' in desc or 'CP210' in desc:
             return port.device
+    # If no specific match, return first available port (for testing)
+    if ports:
+        return ports[0].device
     return None
+
+def list_all_ports():
+    """List all available serial ports for debugging"""
+    ports = serial.tools.list_ports.comports()
+    return [{'device': p.device, 'description': p.description, 'hwid': p.hwid} for p in ports]
 
 def connect_to_pico():
     """Connect to Raspberry Pi Pico via serial"""
@@ -57,6 +66,7 @@ def read_pico_data():
                 if pico_serial.in_waiting > 0:
                     line = pico_serial.readline().decode('utf-8', errors='ignore').strip()
                     if line:
+                        print(f"Received from Pico: {line}")  # Debug output
                         # Parse Pico output (adjust based on your Pico's output format)
                         event = {
                             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -65,10 +75,11 @@ def read_pico_data():
                         }
                         
                         # Detect event types
-                        if 'BLOCKED' in line.upper() or 'DENIED' in line.upper():
+                        line_upper = line.upper()
+                        if 'BLOCKED' in line_upper or 'DENIED' in line_upper or 'BLOCK' in line_upper:
                             event['type'] = 'blocked'
                             stats['blocked_devices'] += 1
-                        elif 'ALLOWED' in line.upper() or 'PERMITTED' in line.upper():
+                        elif 'ALLOWED' in line_upper or 'PERMITTED' in line_upper or 'ALLOW' in line_upper:
                             event['type'] = 'allowed'
                             stats['allowed_devices'] += 1
                         
@@ -79,9 +90,13 @@ def read_pico_data():
                         # Keep only last 100 events
                         if len(detected_events) > 100:
                             detected_events.pop(0)
+            except serial.SerialException as e:
+                print(f"Serial error: {e}")
+                pico_connected = False
             except Exception as e:
                 print(f"Error reading from Pico: {e}")
-                pico_connected = False
+                import traceback
+                traceback.print_exc()
         time.sleep(0.1)
 
 @app.route('/')
@@ -92,9 +107,13 @@ def index():
 @app.route('/api/status')
 def get_status():
     """Get connection status"""
+    current_port = None
+    if pico_serial:
+        current_port = pico_serial.port
     return jsonify({
         'connected': pico_connected,
-        'port': find_pico_port()
+        'port': current_port or find_pico_port(),
+        'available_ports': list_all_ports()
     })
 
 @app.route('/api/events')
@@ -136,6 +155,45 @@ def send_command():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/test_data', methods=['POST'])
+def generate_test_data():
+    """Generate test data for demonstration"""
+    global detected_events, stats
+    import random
+    
+    test_messages = [
+        "USB device detected: Keyboard",
+        "BLOCKED: Suspicious HID device detected",
+        "USB device detected: Mouse",
+        "ALLOWED: Trusted device connected",
+        "BLOCKED: Potential BadUSB attack prevented",
+        "USB device detected: Storage device",
+        "ALLOWED: Authorized USB device",
+        "BLOCKED: Unauthorized HID device",
+    ]
+    
+    for i in range(5):
+        message = random.choice(test_messages)
+        event_type = 'info'
+        if 'BLOCKED' in message.upper():
+            event_type = 'blocked'
+            stats['blocked_devices'] += 1
+        elif 'ALLOWED' in message.upper():
+            event_type = 'allowed'
+            stats['allowed_devices'] += 1
+        
+        event = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'message': message,
+            'type': event_type
+        }
+        detected_events.append(event)
+        stats['total_events'] += 1
+    
+    stats['last_update'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    return jsonify({'success': True, 'message': 'Test data generated'})
 
 if __name__ == '__main__':
     # Start background thread for reading Pico data

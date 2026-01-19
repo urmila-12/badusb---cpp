@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
     document.getElementById('connectBtn').addEventListener('click', connectToPico);
     document.getElementById('disconnectBtn').addEventListener('click', disconnectFromPico);
+    document.getElementById('testBtn').addEventListener('click', generateTestData);
     document.getElementById('clearBtn').addEventListener('click', clearLogs);
 }
 
@@ -18,9 +19,25 @@ async function checkStatus() {
         const response = await fetch('/api/status');
         const data = await response.json();
         updateConnectionStatus(data.connected);
+        updatePortInfo(data);
     } catch (error) {
         console.error('Error checking status:', error);
         updateConnectionStatus(false);
+    }
+}
+
+function updatePortInfo(data) {
+    const portInfo = document.getElementById('portInfo');
+    if (data.available_ports && data.available_ports.length > 0) {
+        const portsList = data.available_ports.map(p => 
+            `${p.device} - ${p.description || 'Unknown'}`
+        ).join('<br>');
+        portInfo.innerHTML = `<strong>Available Ports:</strong><br>${portsList}`;
+        if (data.port) {
+            portInfo.innerHTML += `<br><strong>Current Port:</strong> ${data.port}`;
+        }
+    } else {
+        portInfo.innerHTML = '<strong>No serial ports found.</strong> Make sure your Pico is connected.';
     }
 }
 
@@ -159,6 +176,27 @@ function clearLogs() {
             <span class="event-message">Logs cleared</span>
         </div>
     `;
+}
+
+async function generateTestData() {
+    try {
+        const response = await fetch('/api/test_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            addEvent('info', 'Test data generated - check the event log');
+            // Force update
+            setTimeout(updateDashboard, 100);
+        }
+    } catch (error) {
+        console.error('Error generating test data:', error);
+        alert('Error generating test data');
+    }
 }
 
 function escapeHtml(text) {
